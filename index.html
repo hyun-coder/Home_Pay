@@ -626,7 +626,7 @@ const sameM = (ds,d)=>{const x=new Date(ds);return x.getFullYear()===d.getFullYe
 const DAYS  = ['일','월','화','수','목','금','토'];
 const dateLabel = ds=>{const d=new Date(ds);return `${d.getMonth()+1}월 ${d.getDate()}일 ${DAYS[d.getDay()]}요일`;};
 
-function saveTX(){localStorage.setItem('tx',JSON.stringify(TX));}
+function saveTX(){localStorage.setItem('tx',JSON.stringify(TX));if(TX.length>0)localStorage.removeItem('cleared');}
 function saveCats(){localStorage.setItem('cats',JSON.stringify(CATS));}
 
 function showToast(msg){
@@ -651,6 +651,7 @@ function closeConfirm(ok){
 // ═══════════════════════════════════════════════════════════
 function insertSample(){
   if(TX.length>0)return;
+  if(localStorage.getItem('cleared')==='1')return;
   const y=new Date().getFullYear(),m=pad(new Date().getMonth()+1);
   TX=[
     {id:1,type:'expense',amount:87400,  mainCat:'🛒 식비',       subCat:'🏪 마트/시장',   store:'이마트',      date:`${y}-${m}-05`,memo:'주간장보기'},
@@ -1569,6 +1570,7 @@ function clearAll(){
   showConfirm('⚠️','전체 삭제','모든 데이터를 초기화할까요?',()=>{
     TX=[];BUDG={};RCPT=[];CATS=JSON.parse(JSON.stringify(DEFAULT_CATS));
     saveTX();localStorage.setItem('budg','{}');localStorage.setItem('rcpt','[]');saveCats();
+    localStorage.setItem('cleared','1');
     showToast('🌸 초기화 완료!');renderHome();
   });
 }
