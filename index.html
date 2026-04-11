@@ -19,13 +19,17 @@
   --shadow:rgba(244,167,185,.18);--shadow-d:rgba(74,55,40,.12);
   --tab-h:68px;--hdr-h:60px;
   --safe-bottom:env(safe-area-inset-bottom, 0px);
+  --safe-top:env(safe-area-inset-top, 0px);
+  --sat:env(safe-area-inset-top, 0px); /* JS에서 읽기용 */
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{width:100%;height:100%;overflow:hidden;background:var(--cream);font-family:'Noto Sans KR',sans-serif;color:var(--brown);}
 body{display:flex;flex-direction:column;}
 
 /* ── HEADER ── */
-.hdr{height:var(--hdr-h);background:linear-gradient(135deg,var(--rose) 0%,var(--lav) 100%);
+.hdr{height:calc(var(--hdr-h) + var(--safe-top));
+  padding-top:var(--safe-top);
+  background:linear-gradient(135deg,var(--rose) 0%,var(--lav) 100%);
   display:flex;align-items:center;justify-content:space-between;padding:0 16px;
   box-shadow:0 2px 16px var(--shadow);z-index:100;flex-shrink:0;}
 .hdr-title{font-family:'Gowun Dodum',serif;font-size:21px;color:#fff;font-weight:700;}
@@ -521,6 +525,11 @@ body{display:flex;flex-direction:column;}
     <div style="font-size:12px;font-weight:700;margin-bottom:10px;">⚖️ 수입 vs 지출</div>
     <canvas id="incExpC" height="110" style="width:100%;display:block;"></canvas>
   </div>
+  <!-- 보험 수령금 (연별 뷰 또는 월별 뷰에 표시) -->
+  <div class="card" id="insStatCard" style="display:none;">
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px;">🛡️ 보험 수령금 내역</div>
+    <div id="insStatContent"></div>
+  </div>
 </div>
 
 <!-- ══ LIST ══ -->
@@ -529,6 +538,14 @@ body{display:flex;flex-direction:column;}
     <button class="mnav-btn" onclick="chgListMon(-1)">‹</button>
     <div class="mnav-lbl" id="listMonLbl"></div>
     <button class="mnav-btn" onclick="chgListMon(1)">›</button>
+  </div>
+  <!-- 검색바 -->
+  <div style="padding:4px 14px 0;position:relative;">
+    <input id="listSearchInp" type="text" placeholder="🔍 가게명·내용 검색..." oninput="renderList()"
+      style="width:100%;padding:9px 14px 9px 36px;border-radius:12px;border:1.5px solid #f0e4e0;
+      background:var(--cream);font-size:13px;font-family:'Noto Sans KR',sans-serif;
+      color:var(--brown);outline:none;box-sizing:border-box;">
+    <span style="position:absolute;left:24px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;">🔍</span>
   </div>
   <div class="type-tog" id="listTypeTog">
     <button class="type-btn on" onclick="setListType('all',this)">전체</button>
@@ -562,24 +579,23 @@ body{display:flex;flex-direction:column;}
     <div style="font-size:12px;font-weight:700;margin-bottom:10px;">💹 카테고리별 월 예산</div>
     <div id="budgetList"></div>
   </div>
-  <div class="card" style="margin-bottom:12px;">
-    <div style="font-size:12px;font-weight:700;margin-bottom:8px;">🛡️ 보험 보장금 연간 수령</div>
-    <div id="insYearStat"></div>
-  </div>
+  <!-- 데이터 관리 -->
   <div class="set-sec" style="margin-bottom:12px;">
     <div class="set-row" onclick="openCatMgr()">
       <div class="set-ico">🗂️</div>
       <div class="set-txt"><div class="set-lbl">카테고리 관리</div><div class="set-desc">대분류·소분류 추가/삭제</div></div>
       <div style="color:var(--brown-m);">›</div>
     </div>
-    <div class="set-row" onclick="exportData()">
+    <!-- 내보내기 (JSON + CSV) -->
+    <div class="set-row" onclick="showExportOptions()">
       <div class="set-ico">📤</div>
-      <div class="set-txt"><div class="set-lbl">데이터 내보내기</div><div class="set-desc">JSON 파일로 저장</div></div>
+      <div class="set-txt"><div class="set-lbl">데이터 내보내기</div><div class="set-desc">JSON 백업 · CSV(엑셀) 내보내기</div></div>
       <div style="color:var(--brown-m);">›</div>
     </div>
-    <div class="set-row" onclick="document.getElementById('importInp').click()">
+    <!-- 가져오기 (덮어쓰기/합치기) -->
+    <div class="set-row" onclick="showImportOptions()">
       <div class="set-ico">📥</div>
-      <div class="set-txt"><div class="set-lbl">데이터 가져오기</div><div class="set-desc">JSON 파일 불러오기</div></div>
+      <div class="set-txt"><div class="set-lbl">데이터 가져오기</div><div class="set-desc">덮어쓰기 또는 합치기(Merge)</div></div>
       <div style="color:var(--brown-m);">›</div>
     </div>
     <div class="set-row" onclick="clearAll()">
@@ -588,7 +604,8 @@ body{display:flex;flex-direction:column;}
       <div style="color:var(--brown-m);">›</div>
     </div>
   </div>
-  <input type="file" accept=".json" id="importInp" style="display:none;" onchange="importData(event)">
+  <input type="file" accept=".json" id="importInp" style="display:none;" onchange="importData(event,'overwrite')">
+  <input type="file" accept=".json" id="mergeInp"  style="display:none;" onchange="importData(event,'merge')">
   <div style="text-align:center;padding:6px 14px 14px;font-size:10px;color:var(--brown-m);">꽃살림 가계부 v6.0 🌸</div>
 </div>
 
@@ -986,7 +1003,7 @@ let statChartType='bar';
 let statCursor=new Date(); // 현재 탐색 기준 날짜
 let expandedCat=null;
 let listType='all', listCat='전체';
-let editId=null, mType='expense', selMain=null, selSub=null, amtStr='0', cfmCb=null;
+let editId=null, mType='expense', selMain=null, selSub=null, amtStr='0';
 let selPayMethod='cash', selCardId=null, selBankId=null, selIncBankId=null;
 let trfFromId=null, trfToId=null;
 let editFixId=null, selFixDay=null, selFixCat=null;
@@ -1013,16 +1030,20 @@ const sameM=(ds,d)=>{const x=new Date(ds);return x.getFullYear()===d.getFullYear
 const DAYS=['일','월','화','수','목','금','토'];
 const dateLabel=ds=>{const d=new Date(ds);return `${d.getMonth()+1}월 ${d.getDate()}일 ${DAYS[d.getDay()]}요일`;};
 
-function showToast(msg){
-  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2200);
-}
-function showConfirm(ico,title,msg,cb){
-  document.getElementById('cfmIco').textContent=ico;document.getElementById('cfmTitle').textContent=title;
-  document.getElementById('cfmMsg').textContent=msg;cfmCb=cb;
+let cfmCb=null, cfmCancelCb=null;
+function showConfirm(ico,title,msg,cb,cancelCb){
+  document.getElementById('cfmIco').textContent=ico;
+  document.getElementById('cfmTitle').textContent=title;
+  document.getElementById('cfmMsg').textContent=msg;
+  cfmCb=cb; cfmCancelCb=cancelCb||null;
   document.getElementById('confirmDlg').classList.add('open');
 }
-function closeConfirm(ok){document.getElementById('confirmDlg').classList.remove('open');if(ok&&cfmCb)cfmCb();cfmCb=null;}
+function closeConfirm(ok){
+  document.getElementById('confirmDlg').classList.remove('open');
+  if(ok&&cfmCb) cfmCb();
+  else if(!ok&&cfmCancelCb) cfmCancelCb();
+  cfmCb=null; cfmCancelCb=null;
+}
 function closeOv(id){document.getElementById(id).classList.remove('open');}
 function closeOvOutside(e,id){if(e.target===document.getElementById(id))closeOv(id);}
 
@@ -1392,6 +1413,28 @@ function renderStat(){
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     try{ drawIncExpChart(txSet); }catch(e){ console.warn('incexp err',e); }
   }));
+
+  // 보험 수령금 카드 (수령금이 있을 때만 표시)
+  const insCard=document.getElementById('insStatCard');
+  const insList=txSet.filter(t=>t.type==='income'&&(t.mainCat||'').includes('보험수령금'));
+  if(insList.length){
+    insCard.style.display='block';
+    const insTotal=insList.reduce((s,t)=>s+t.amount,0);
+    const rows=insList.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t=>
+      '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f5eeea;">'
+      +'<div><div style="font-size:12px;font-weight:600;">'+(t.store||t.subCat||'보험수령금')+'</div>'
+      +'<div style="font-size:10px;color:var(--brown-m);">'+t.date+' · '+(t.subCat||'')+'</div></div>'
+      +'<div style="font-size:13px;font-weight:700;color:var(--lav-deep);">+'+won(t.amount)+'</div>'
+      +'</div>'
+    ).join('');
+    document.getElementById('insStatContent').innerHTML=
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 8px;">'
+      +'<span style="font-size:11px;color:var(--brown-m);">합계</span>'
+      +'<span style="font-size:15px;font-weight:900;color:var(--lav-deep);">+'+won(insTotal)+'</span></div>'
+      +rows;
+  } else {
+    insCard.style.display='none';
+  }
 }
 
 // ── 메인 차트 (기간별 다른 X축) ──
@@ -1738,8 +1781,12 @@ function renderList(){
   const allCats=['전체','식비','주거/생활','자녀/교육','건강/의료','교통/차량','의류/미용','경조사','보험료납부','보험수령금','이체'];
   document.getElementById('filterChips').innerHTML=allCats.map(c=>`<div class="chip ${listCat===c?'on':''}" onclick="setListCat('${c}')">${c}</div>`).join('');
   let rows=TX.filter(t=>sameM(t.date,listMon));
-  // 할부 자식 TX는 목록에서 숨김 (부모 TX가 있는 경우)
+  // 할부 자식 TX는 목록에서 숨김
   rows=rows.filter(t=>!t.installParentId||!TX.find(p=>p.id===t.installParentId));
+  // 검색어 필터
+  const searchEl=document.getElementById('listSearchInp');
+  const kw=(searchEl?searchEl.value:'').trim().toLowerCase();
+  if(kw) rows=rows.filter(t=>(t.store||'').toLowerCase().includes(kw)||(t.subCat||'').toLowerCase().includes(kw)||(t.mainCat||'').toLowerCase().includes(kw)||(t.memo||'').toLowerCase().includes(kw));
   if(listType==='expense') rows=rows.filter(t=>t.type==='expense');
   else if(listType==='income') rows=rows.filter(t=>t.type==='income');
   else if(listType==='transfer') rows=rows.filter(t=>t.type==='transfer');
@@ -2686,11 +2733,13 @@ function deleteLoanItem(){
 function renderSetting(){
   const themeKeys=Object.keys(THEMES);
   document.getElementById('themeChips').innerHTML=themeKeys.map(k=>{
-    const t=THEMES[k];return `<div class="thm-chip ${THEME===k?'on':''}" style="background:${t.main};" onclick="setTheme('${k}')"></div>`;
+    const t=THEMES[k];return '<div class="thm-chip '+(THEME===k?'on':'')+'" style="background:'+t.main+';" onclick="setTheme(\''+k+'\')"></div>';
   }).join('');
-  const cats=CATS.expense;const now=new Date();const ym=`${now.getFullYear()}-${pad(now.getMonth()+1)}`;
+  const cats=CATS.expense||[];
+  const now=new Date();
+  const ym=now.getFullYear()+'-'+pad(now.getMonth()+1);
   document.getElementById('budgetList').innerHTML=cats.map(c=>{
-    const key=`${ym}_${c.id}`;const bud=BUDG[key]||0;
+    const key=ym+'_'+c.id;const bud=BUDG[key]||0;
     const spent=TX.filter(t=>t.type==='expense'&&sameM(t.date,now)&&(t.mainCat||'').includes(c.label)).reduce((s,t)=>s+t.amount,0);
     const pct=bud?Math.min(100,Math.round(spent/bud*100)):0;const barColor=pct>90?'#FF8A65':(pct>70?'#FFAB40':'var(--mint)');
     return '<div class="bud-item"><div class="bud-row"><span style="font-size:12px;">'+c.icon+' '+c.label+'</span>'
@@ -2698,26 +2747,125 @@ function renderSetting(){
       +(bud>0?'<div class="bud-prog"><div class="bud-bar" style="width:'+pct+'%;background:'+barColor+';"></div></div><div style="display:flex;justify-content:space-between;margin-top:2px;"><span style="font-size:10px;color:var(--brown-m);">'+won(spent)+' 사용</span><span style="font-size:10px;color:'+barColor+';">'+pct+'%</span></div>':'')
       +'</div>';
   }).join('');
-  const yr=new Date().getFullYear();
-  const yIns=TX.filter(t=>t.type==='income'&&(t.mainCat||'').includes('보험수령금')&&new Date(t.date).getFullYear()===yr);
-  const yTotal=yIns.reduce((s,t)=>s+t.amount,0);
-  const mm={};yIns.forEach(t=>{const m=t.date.slice(0,7);mm[m]=(mm[m]||0)+t.amount;});
-  document.getElementById('insYearStat').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="font-size:12px;color:var(--brown-m);">${yr}년 총 수령</span><span style="font-size:16px;font-weight:900;color:var(--lav-deep);">${won(yTotal)}</span></div>`+Object.entries(mm).sort().map(([m,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5eeea;"><span style="font-size:12px;">${parseInt(m.split('-')[1])}월</span><span style="font-size:12px;font-weight:700;color:var(--lav-deep);">${won(v)}</span></div>`).join('')+(yIns.length?'':'<div style="text-align:center;padding:10px;color:var(--brown-m);font-size:12px;">올해 수령 내역 없음 🌸</div>');
 }
 function setBudget(key,val){BUDG[key]=parseInt(val)||0;localStorage.setItem('budg',JSON.stringify(BUDG));}
 function setTheme(p){THEME=p;localStorage.setItem('theme',p);applyTheme();renderSetting();showToast('🎨 테마 변경됨!');}
 function applyTheme(){const t=THEMES[THEME];if(!t)return;document.documentElement.style.setProperty('--rose',t.main);document.documentElement.style.setProperty('--rose-deep',t.deep);document.documentElement.style.setProperty('--rose-light',t.light);}
-function exportData(){const blob=new Blob([JSON.stringify({TX,BUDG,CATS,FIXED,CARDS,BANKS,LOANS,exportDate:new Date().toISOString()},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`꽃살림가계부_${today()}.json`;a.click();showToast('📤 내보내기 완료!');}
-function importData(e){
+// ── 내보내기 옵션 ──
+function showExportOptions(){
+  showConfirm('📤','내보내기 형식 선택',
+    'JSON(백업/복원용)과 CSV(엑셀 호환) 중 선택하세요.\n\n아래 "확인"=JSON,  "취소"=CSV',
+    ()=>exportJSON(),
+    ()=>exportCSV()
+  );
+}
+function exportJSON(){
+  const data=JSON.stringify({TX,BUDG,CATS,FIXED,CARDS,BANKS,LOANS,exportDate:new Date().toISOString()},null,2);
+  const fname='꽃살림가계부_'+today()+'.json';
+  _downloadFile(data,'application/json',fname);
+}
+function exportCSV(){
+  // UTF-8 BOM 추가 → 엑셀에서 한글 깨짐 방지
+  const BOM='\uFEFF';
+  const headers=['날짜','유형','대분류','소분류','가게명','금액','결제수단','메모'];
+  const rows=TX.filter(t=>!t.installParentId).map(t=>{
+    const type=t.type==='income'?'수입':t.type==='expense'?'지출':'이체';
+    const pay=t.payMethod==='card'?'카드':t.payMethod==='bank'?'통장이체':'현금';
+    return [t.date,type,t.mainCat||'',t.subCat||'',t.store||'',t.amount,pay,t.memo||'']
+      .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
+  });
+  const csv=BOM+headers.join(',')+'\n'+rows.join('\n');
+  _downloadFile(csv,'text/csv','꽃살림가계부_'+today()+'.csv');
+}
+function _downloadFile(content,mime,filename){
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  // iOS Safari 대응: navigator.share 우선 시도
+  if(navigator.share&&/iP(hone|ad)/i.test(navigator.userAgent)){
+    const file=new File([blob],filename,{type:mime});
+    navigator.share({files:[file],title:filename})
+      .catch(()=>_fallbackDownload(url,filename));
+  } else {
+    _fallbackDownload(url,filename);
+  }
+}
+function _fallbackDownload(url,filename){
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},300);
+  showToast('📤 내보내기 완료!');
+}
+
+// ── 가져오기 옵션 ──
+function showImportOptions(){
+  showConfirm('📥','가져오기 방식 선택',
+    '"확인"=덮어쓰기(기존 데이터 삭제)\n"취소"=합치기(기존+백업 병합)',
+    ()=>document.getElementById('importInp').click(),
+    ()=>document.getElementById('mergeInp').click()
+  );
+}
+function importData(e,mode){
   const file=e.target.files[0];if(!file)return;
-  const r=new FileReader();r.onload=ev=>{
-    try{const d=JSON.parse(ev.target.result);
-      if(d.TX){TX=d.TX;saveTX();}if(d.BUDG){BUDG=d.BUDG;localStorage.setItem('budg',JSON.stringify(BUDG));}
-      if(d.CATS){CATS=d.CATS;saveCats();}if(d.FIXED){FIXED=d.FIXED;saveFIXED();}
-      if(d.CARDS){CARDS=d.CARDS;saveCARDS();}if(d.BANKS){BANKS=d.BANKS;saveBANKS();}
-      if(d.LOANS){LOANS=d.LOANS;saveLOANS();}
-      showToast('📥 가져오기 완료!');renderHome();}catch{showToast('❌ 파일 형식 오류');}
-  };r.readAsText(file);e.target.value='';
+  const r=new FileReader();
+  r.onload=ev=>{
+    let d;
+    try{ d=JSON.parse(ev.target.result); }
+    catch{ showToast('❌ JSON 형식이 아닌 파일입니다');e.target.value='';return; }
+
+    // 꽃살림 가계부 파일인지 기본 검증
+    if(!d||typeof d!=='object'||(!d.TX&&!d.BANKS&&!d.CARDS)){
+      showToast('❌ 꽃살림 가계부 백업 파일이 아닙니다');e.target.value='';return;
+    }
+    // TX 배열 검증
+    if(d.TX&&!Array.isArray(d.TX)){
+      showToast('❌ 데이터 형식이 손상되었습니다');e.target.value='';return;
+    }
+
+    if(mode==='merge'){
+      // 합치기: 기존 ID와 중복되지 않는 TX만 추가
+      if(d.TX){
+        const existIds=new Set(TX.map(t=>t.id));
+        const newTx=d.TX.filter(t=>!existIds.has(t.id));
+        TX=[...TX,...newTx]; saveTX();
+      }
+      if(d.BANKS){
+        const existIds=new Set(BANKS.map(b=>b.id));
+        BANKS=[...BANKS,...(d.BANKS.filter(b=>!existIds.has(b.id)))]; saveBANKS();
+      }
+      if(d.CARDS){
+        const existIds=new Set(CARDS.map(c=>c.id));
+        CARDS=[...CARDS,...(d.CARDS.filter(c=>!existIds.has(c.id)))]; saveCARDS();
+      }
+      if(d.FIXED){
+        const existIds=new Set(FIXED.map(f=>f.id));
+        FIXED=[...FIXED,...(d.FIXED.filter(f=>!existIds.has(f.id)))]; saveFIXED();
+      }
+      if(d.LOANS){
+        const existIds=new Set(LOANS.map(l=>l.id));
+        LOANS=[...LOANS,...(d.LOANS.filter(l=>!existIds.has(l.id)))]; saveLOANS();
+      }
+      showToast('🔀 합치기 완료! '+( d.TX?d.TX.length:0)+'건 추가');
+    } else {
+      // 덮어쓰기
+      showConfirm('⚠️','덮어쓰기 확인',
+        '기존 모든 데이터가 백업 파일로 교체됩니다. 계속할까요?',
+        ()=>{
+          if(d.TX){TX=d.TX;saveTX();}
+          if(d.BUDG){BUDG=d.BUDG;localStorage.setItem('budg',JSON.stringify(BUDG));}
+          if(d.CATS){CATS=d.CATS;saveCats();}
+          if(d.FIXED){FIXED=d.FIXED;saveFIXED();}
+          if(d.CARDS){CARDS=d.CARDS;saveCARDS();}
+          if(d.BANKS){BANKS=d.BANKS;saveBANKS();}
+          if(d.LOANS){LOANS=d.LOANS;saveLOANS();}
+          showToast('📥 가져오기 완료!');renderHome();
+        }
+      );
+    }
+    e.target.value='';
+    renderHome();
+  };
+  r.readAsText(file);
 }
 function clearAll(){
   showConfirm('⚠️','전체 삭제','모든 데이터를 초기화할까요?',()=>{
@@ -2766,6 +2914,62 @@ function startVoice(){
 }
 
 // ═══════════════════════════════════════════
+// HAPTIC  (갤럭시 진동 피드백 - 사용자 제스처 시에만)
+// ═══════════════════════════════════════════
+let _userActivated = false;
+// capture:true → 다른 pointerdown 핸들러보다 먼저 실행되어 플래그를 확실히 세팅
+document.addEventListener('pointerdown', ()=>{ _userActivated = true; },
+  {once:true, passive:true, capture:true});
+
+function haptic(type){
+  if(!_userActivated) return;
+  if(!navigator.vibrate) return;
+  try{
+    if(type==='light')        navigator.vibrate(8);
+    else if(type==='medium')  navigator.vibrate(20);
+    else if(type==='success') navigator.vibrate([10,30,10]);
+    else if(type==='error')   navigator.vibrate([30,20,30]);
+  }catch(_){}
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  if(!t) return;
+  t.textContent=msg;
+  t.classList.add('show');
+  if(_userActivated){
+    if(msg.includes('❌')||msg.includes('⚠️')) haptic('error');
+    else haptic('success');
+  }
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ═══════════════════════════════════════════
+// HISTORY API  (갤럭시 뒤로가기 → 모달 닫기)
+// ═══════════════════════════════════════════
+const MODAL_IDS=['addModal','bankModal','cardModal','fixModal','loanModal','voiceModal'];
+function pushModalState(id){
+  history.pushState({modal:id},'','');
+}
+function openOvWithHistory(id){
+  document.getElementById(id).classList.add('open');
+  pushModalState(id);
+}
+window.addEventListener('popstate',e=>{
+  // 열린 모달이 있으면 닫기
+  const open=MODAL_IDS.find(id=>{
+    const el=document.getElementById(id);
+    return el&&el.classList.contains('open');
+  });
+  if(open){
+    document.getElementById(open).classList.remove('open');
+  }
+  // catMgrPage도 닫기
+  const cm=document.getElementById('catMgrPage');
+  if(cm&&cm.classList.contains('open')) cm.classList.remove('open');
+});
+
+// ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
@@ -2775,12 +2979,23 @@ window.addEventListener('DOMContentLoaded', () => {
     applyTheme();
     renderHome();
     renderMainCatGrid();
-    // DOM 요소가 실제로 존재할 때만 값 주입 (갤럭시 등 렌더링 지연 방어)
     const dateInp = document.getElementById('dateInp');
     if (dateInp) dateInp.value = today();
+
+    // 탭·버튼 햅틱 — click은 항상 제스처 이후 발생하므로 안전
+    document.querySelectorAll('.tab,.fab,.save-btn,.np-btn').forEach(el=>{
+      el.addEventListener('click', ()=>haptic('light'), {passive:true});
+    });
+
+    // iOS safe-area-inset-top 대응: 헤더에 패딩 추가
+    const safeTop = parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue('--sat')||'0'
+    )||0;
+    const hdr=document.querySelector('.hdr');
+    if(hdr && safeTop>0) hdr.style.paddingTop=safeTop+'px';
+
   } catch(e) {
     console.error('[INIT] 초기화 오류:', e);
-    // 오류가 나도 홈 화면 최소 렌더 재시도
     try { renderHome(); } catch(_) {}
   }
 });
